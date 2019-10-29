@@ -7,12 +7,31 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::string::ParseError;
 use structopt::StructOpt;
 use toml::Value;
 use walkdir::{DirEntry, WalkDir};
 
 mod book;
 use book::Chapter;
+
+enum Format {
+    Md(char),
+    Git(char),
+}
+
+impl FromStr for Format {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "md" => Ok(Format::Md('-')),
+            "git" => Ok(Format::Git('*')),
+            _ => panic!("Error: Invalid format {}", s),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq)]
 enum SummaryError {}
@@ -49,7 +68,7 @@ struct Opt {
     #[structopt(name = "title", short, long, default_value = "Summary")]
     title: String,
 
-    /// Start with following chapters
+    /// Start with following chapters (space seperate)
     #[structopt(name = "sort", short, long)]
     sort: Option<Vec<String>>,
 
@@ -128,14 +147,7 @@ fn main() {
         &opt.dir.to_str().unwrap(),
         &opt.outputfile,
         // &book.get_summary_file(&opt.format),
-        &book.get_summary_file(
-            match opt.format.as_ref() {
-                "md" => &'-',
-                "git" => &'*',
-                _ => &' ',
-            },
-            &opt.sort,
-        ),
+        &book.get_summary_file(&opt.format, &opt.sort),
     );
 
     if opt.verbose > 2 {
@@ -521,15 +533,15 @@ mod tests {
         let book = Chapter::new(TITLE.to_string(), &input);
 
         assert_eq!(
-                expected,
-                book.get_summary_file(
-                    &'-',
-                    &Some(vec![
-                        "part4".to_string(),
-                        "part5".to_string(),
-                        "part3".to_string()
-                    ])
-                )
+            expected,
+            book.get_summary_file(
+                &'-',
+                &Some(vec![
+                    "PART4".to_string(),
+                    "part5".to_string(),
+                    "part3".to_string()
+                ])
+            )
         );
     }
 }

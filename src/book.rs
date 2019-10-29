@@ -1,5 +1,24 @@
 use std::path::Path;
+use std::str::FromStr;
+use std::string::ParseError;
 use titlecase::titlecase;
+
+enum Format {
+    Md(char),
+    Git(char),
+}
+
+impl FromStr for Format {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "md" => Ok(Format::Md('-')),
+            "git" => Ok(Format::Git('*')),
+            _ => panic!("Error: Invalid format {}", s),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub struct Chapter {
@@ -48,11 +67,7 @@ impl Chapter {
         }
     }
 
-    pub fn get_summary_file(
-        &self,
-        list_char: &char,
-        prefered_chapter: &Option<Vec<String>>,
-    ) -> String {
+    pub fn get_summary_file(&self, format: &str, prefered_chapter: &Option<Vec<String>>) -> String {
         // create markdown summary file
         /*
         gitbook format:
@@ -77,6 +92,11 @@ impl Chapter {
             - [test](cli/test.md)
             - [clean](cli/clean.md)
         */
+        let list_char = match format {
+            "md" => &'-',
+            "git" => &'*',
+            _ => &' ',
+        };
 
         let indent_level = 0;
         let mut summary: String = "".to_string();
@@ -86,7 +106,11 @@ impl Chapter {
         // first prefered chapters (sort)
         if let Some(chapter_names) = prefered_chapter {
             for chapter_name in chapter_names {
-                if let Some(chapter) = self.chapter.iter().find(|c| c.name.eq(chapter_name)) {
+                if let Some(chapter) = self
+                    .chapter
+                    .iter()
+                    .find(|c| c.name.to_lowercase() == chapter_name.to_lowercase())
+                {
                     summary += &chapter.create_tree_for_summary(list_char, indent_level);
                 }
             }
@@ -94,7 +118,12 @@ impl Chapter {
 
         for c in &self.chapter {
             if let Some(chapter_names) = prefered_chapter {
-                if chapter_names.contains(&c.name) {
+                if chapter_names
+                    .iter()
+                    .map(|n| n.to_lowercase())
+                    .collect::<Vec<String>>()
+                    .contains(&c.name.to_lowercase())
+                {
                     continue;
                 }
             }
@@ -118,7 +147,11 @@ impl Chapter {
                 readme
             )
         } else {
-            summary.push_str(&format!("{} {}\n", list_char, make_title_case(&self.name)));
+            summary.push_str(&format!(
+                "{} [{}](#)\n",
+                list_char,
+                make_title_case(&self.name)
+            ));
         }
 
         summary += &print_files(&self.files, list_char, indent + 1);
