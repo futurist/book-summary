@@ -3,7 +3,8 @@ use std::str::FromStr;
 use std::string::ParseError;
 use titlecase::titlecase;
 
-enum Format {
+#[derive(Debug, PartialEq)]
+pub enum Format {
     Md(char),
     Git(char),
 }
@@ -67,7 +68,7 @@ impl Chapter {
         }
     }
 
-    pub fn get_summary_file(&self, format: &str, prefered_chapter: &Option<Vec<String>>) -> String {
+    pub fn get_summary_file(&self, format: &Format, prefered_chapter: &Option<Vec<String>>) -> String {
         // create markdown summary file
         /*
         gitbook format:
@@ -92,16 +93,14 @@ impl Chapter {
             - [test](cli/test.md)
             - [clean](cli/clean.md)
         */
-        let list_char = match format {
-            "md" => &'-',
-            "git" => &'*',
-            _ => &' ',
-        };
 
         let indent_level = 0;
         let mut summary: String = "".to_string();
         summary.push_str(&format!("# {}\n\n", self.name));
-        summary += &print_files(&self.files, &list_char, indent_level);
+        match format {
+            Format::Md(list_char) => summary += &print_files(&self.files, list_char, indent_level),
+            Format::Git(list_char) => summary += &print_files(&self.files, list_char, indent_level),
+        }
 
         // first prefered chapters (sort)
         if let Some(chapter_names) = prefered_chapter {
@@ -111,7 +110,12 @@ impl Chapter {
                     .iter()
                     .find(|c| c.name.to_lowercase() == chapter_name.to_lowercase())
                 {
-                    summary += &chapter.create_tree_for_summary(list_char, indent_level);
+                    summary += &chapter.create_tree_for_summary(&format, indent_level);
+
+                    // match format {
+                        // Format::Md(list_char) => summary += &chapter.create_tree_for_summary(list_char, indent_level),
+                        // Format::Git(list_char) => summary += &chapter.create_tree_for_summary(list_char, indent_level),
+                    // }
                 }
             }
         }
@@ -127,13 +131,24 @@ impl Chapter {
                     continue;
                 }
             }
-            summary += &c.create_tree_for_summary(list_char, indent_level);
+
+            summary += &c.create_tree_for_summary(&format, indent_level);
+
+            // match format {
+                // Format::Md(list_char) => summary += &c.create_tree_for_summary(list_char, indent_level),
+                // Format::Git(list_char) => summary += &c.create_tree_for_summary(list_char, indent_level),
+            // }
         }
         summary
     }
 
-    fn create_tree_for_summary(&self, list_char: &char, indent: usize) -> String {
+    fn create_tree_for_summary(&self, format: &Format, indent: usize) -> String {
         let mut summary: String = " ".repeat(4 * indent);
+        let list_char = match format {
+            Format::Md(c) => c,
+            Format::Git(c) => c,
+        };
+
         if let Some(readme) = self
             .files
             .iter()
@@ -147,17 +162,24 @@ impl Chapter {
                 readme
             )
         } else {
-            summary.push_str(&format!(
-                "{} [{}](#)\n",
-                list_char,
-                make_title_case(&self.name)
-            ));
+            match format {
+                Format::Md(_) => summary.push_str(&format!(
+                        "{} [{}](#)\n",
+                        list_char,
+                        make_title_case(&self.name)
+                )),
+                Format::Git(_) => summary.push_str(&format!(
+                        "{} {}\n",
+                        list_char,
+                        make_title_case(&self.name)
+                )),
+            }
         }
 
         summary += &print_files(&self.files, list_char, indent + 1);
 
         for c in &self.chapter {
-            summary += &c.create_tree_for_summary(list_char, indent + 1);
+            summary += &c.create_tree_for_summary(&format, indent + 1);
         }
         summary
     }
