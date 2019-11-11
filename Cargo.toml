@@ -17,8 +17,10 @@ opt-level = 0
 debug = true
 
 [profile.release]
-opt-level = 3
+opt-level = 'z'  # Optimize for size
 debug = false
+lto = true
+codegen-units = 1
 
 [dependencies]
 structopt = "0.3.1"

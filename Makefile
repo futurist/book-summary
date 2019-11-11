@@ -11,7 +11,7 @@ bench:
 	@$(CARGO) bench
 
 build:
-	@$(CARGO) build
+	RUSTFLAGS='-C link-arg=-s' $(CARGO) build --release
 
 check:
 	RUSTFLAGS=$(RUSTFLAGS) @$(CARGO) check
