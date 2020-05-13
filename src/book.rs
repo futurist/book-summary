@@ -1,7 +1,52 @@
 use std::path::Path;
+use std::fs;
 use std::str::FromStr;
 use std::string::ParseError;
 use titlecase::titlecase;
+
+use structopt::StructOpt;
+use std::path::PathBuf;
+
+#[derive(StructOpt, Debug)]
+#[structopt()]
+struct Opt {
+    /// Activate debug mode
+    #[structopt(name = "debug", short, long)]
+    debug: bool,
+
+    // The number of occurrences of the `v/verbose` flag
+    /// Verbose mode (-v, -vv, -vvv)
+    #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
+    verbose: u8,
+
+    /// Title from md file header?
+    #[structopt(name = "mdheader", short, long)]
+    mdheader: bool,
+
+    /// Format md/git book
+    #[structopt(name = "format", short, long, default_value = "md")]
+    format: Format,
+
+    /// Title for summary
+    #[structopt(name = "title", short, long, default_value = "Summary")]
+    title: String,
+
+    /// Start with following chapters (space seperate)
+    #[structopt(name = "sort", short, long)]
+    sort: Option<Vec<String>>,
+
+    /// Output file
+    #[structopt(name = "outputfile", short, long, default_value = "SUMMARY.md")]
+    outputfile: String,
+
+    /// Notes dir where to parse all your notes from
+    #[structopt(name = "notesdir", short, long, default_value = ".")]
+    dir: PathBuf,
+
+    /// Overwrite existing SUMMARY.md file
+    #[structopt(name = "yes", short, long = "overwrite")]
+    yes: bool,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Format {
@@ -194,12 +239,22 @@ fn print_files(files: &Vec<String>, list_char: &char, indent: usize) -> String {
                 "{}{} [{}]({})\n",
                 " ".repeat(4 * indent),
                 list_char,
-                make_title_case(Path::new(&f).file_stem().unwrap().to_str().unwrap()),
+                // make_title_case(Path::new(&f).file_stem().unwrap().to_str().unwrap()),
+                make_title(Path::new(&f)),
                 &f
             )
         })
         .collect::<Vec<String>>()
         .join("")
+}
+
+
+fn make_title(path: &Path) -> String {
+    let opt = Opt::from_args();
+    let file_path = ||Path::new(opt.dir.to_str().unwrap()).join(path);
+    let content = fs::read_to_string(file_path());
+    println!("file:{:?}", file_path());
+    String::from(make_title_case(content.unwrap().trim().lines().next().unwrap().trim_start_matches('#').trim()))
 }
 
 fn make_title_case(name: &str) -> String {
